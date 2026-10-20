@@ -1,9 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <title>My GitHub Page</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basel1ne's Pages</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        h1 { color: #24292e; border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 10px 0; }
+        a { color: #0366d6; text-decoration: none; font-size: 18px; }
+        a:hover { text-decoration: underline; }
+        .loading { color: #666; font-style: italic; }
+    </style>
 </head>
 <body>
-    <h1>안녕하세요! Basel1ne의 웹사이트입니다.</h1>
+
+    <h1>📄 업로드된 HTML 파일 목록</h1>
+    <ul id="file-list" class="loading">파일 목록을 불러오는 중입니다...</ul>
+
+    <script>
+        // GitHub 사용자명과 레포지터리 이름 설정
+        const USERNAME = 'Basel1ne';
+        const REPO = 'Basel1ne.github.io';
+        
+        // GitHub API 엔드포인트
+        const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
+
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                const listElement = document.getElementById('file-list');
+                listElement.innerHTML = ''; // 로딩 메시지 제거
+                listElement.classList.remove('loading');
+
+                // 1. '.html'로 끝나고 'index.html'이 아닌 파일만 필터링
+                const htmlFiles = data.filter(file => 
+                    file.type === 'file' && 
+                    file.name.endsWith('.html') && 
+                    file.name !== 'index.html'
+                );
+
+                if (htmlFiles.length === 0) {
+                    listElement.innerHTML = '<li>현재 업로드된 다른 HTML 파일이 없습니다.</li>';
+                    return;
+                }
+
+                // 2. 검색된 파일들을 <li> 태그와 <a> 링크로 생성하여 추가
+                htmlFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    
+                    a.href = file.name;            // 파일 경로 연결
+                    a.textContent = file.name;     // 화면에 표시될 파일명
+                    
+                    li.appendChild(a);
+                    listElement.appendChild(li);
+                });
+            })
+            .catch(error => {
+                console.error('파일 목록 조회 실패:', error);
+                document.getElementById('file-list').textContent = '파일 목록을 불러오지 못했습니다.';
+            });
+    </script>
+
 </body>
 </html>
