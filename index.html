@@ -21,7 +21,7 @@
       padding: 20px;
     }
     .server-container {
-      max-width: 900px;
+      max-width: 950px;
       margin: 0 auto;
       background: var(--container-bg);
       border: 1px solid var(--border-color);
@@ -67,24 +67,36 @@
     }
     tr:hover { background-color: var(--hover-bg); }
     .icon { margin-right: 8px; font-style: normal; }
-    .name-col { width: 55%; }
-    .size-col { width: 25%; }
-    .action-col { width: 20%; text-align: right; }
+    .name-col { width: 50%; }
+    .size-col { width: 20%; }
+    .action-col { width: 30%; text-align: right; white-space: nowrap; }
+    
     a.file-link {
       color: var(--link-color);
       text-decoration: none;
       font-weight: 500;
     }
     a.file-link:hover { text-decoration: underline; }
-    .btn-download {
+    
+    /* 버튼 스타일 */
+    .btn {
       display: inline-block;
       padding: 4px 8px;
-      background: #2ea44f;
-      color: white;
       text-decoration: none;
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: bold;
+      margin-left: 4px;
+    }
+    .btn-view {
+      background: #0969da;
+      color: white !important;
+    }
+    .btn-view:hover { background: #0451a5; }
+    
+    .btn-download {
+      background: #2ea44f;
+      color: white !important;
     }
     .btn-download:hover { background: #2c974b; }
   </style>
@@ -105,7 +117,7 @@
       <tr>
         <th class="name-col">이름</th>
         <th class="size-col">크기</th>
-        <th class="action-col">다운로드</th>
+        <th class="action-col">작업</th>
       </tr>
     </thead>
     <tbody id="file-list">
@@ -187,9 +199,17 @@
 
             html += `
               <tr>
-                <td class="name-col"><i class="icon">📄</i><a href="${item.download_url}" target="_blank" class="file-link">${item.name}</a></td>
+                <td class="name-col">
+                  <i class="icon">📄</i>
+                  <a href="${item.download_url}" target="_blank" class="file-link">${item.name}</a>
+                </td>
                 <td class="size-col">${displaySize}</td>
-                <td class="action-col"><a href="${item.download_url}" target="_blank" class="btn-download">다운로드</a></td>
+                <td class="action-col">
+                  <!-- 새 탭에서 열기 (웹 바로보기) -->
+                  <a href="${item.download_url}" target="_blank" class="btn btn-view" title="새 탭에서 바로보기">👁️ 보기</a>
+                  <!-- 파일 바로 저장 -->
+                  <a href="${item.download_url}" download="${item.name}" class="btn btn-download" title="다운로드">📥 저장</a>
+                </td>
               </tr>
             `;
           }
