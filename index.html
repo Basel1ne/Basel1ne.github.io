@@ -5,36 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Basel1ne's Pages</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-        h1 { color: #24292e; border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f6f8fa; }
+        
+        /* 1. 목록 화면 스타일 */
+        .container { max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { color: #24292e; border-bottom: 2px solid #eaecef; padding-bottom: 10px; margin-top: 0; }
         ul { list-style-type: none; padding: 0; }
-        li { margin: 10px 0; }
-        a { color: #0366d6; text-decoration: none; font-size: 18px; }
-        a:hover { text-decoration: underline; }
-        .loading { color: #666; font-style: italic; }
+        li { margin: 12px 0; padding: 10px; border-bottom: 1px solid #f0f0f0; }
+        a.file-link { color: #0366d6; text-decoration: none; font-size: 18px; font-weight: bold; cursor: pointer; }
+        a.file-link:hover { text-decoration: underline; }
+        
+        /* 2. 상단 고정 헤더 & 뷰어 스타일 */
+        #viewer-header {
+            position: fixed; top: 0; left: 0; right: 0; height: 50px;
+            background: #24292e; color: white; display: flex; align-items: center;
+            padding: 0 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;
+        }
+        #back-btn {
+            background: #2da44e; color: white; border: none; padding: 8px 16px;
+            border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        #back-btn:hover { background: #2c974b; }
+        #current-title { margin-left: 15px; font-size: 15px; color: #d0d7de; }
+        
+        #content-frame {
+            position: fixed; top: 50px; left: 0; width: 100%; height: calc(100vh - 50px);
+            border: none; background: white;
+        }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <h1>📄 업로드된 HTML 파일 목록</h1>
-    <ul id="file-list" class="loading">파일 목록을 불러오는 중입니다...</ul>
+    <!-- [화면 1] 메인 파일 목록 -->
+    <div id="list-view" class="container">
+        <h1>📄 업로드된 HTML 파일 목록</h1>
+        <ul id="file-list">파일 목록을 불러오는 중입니다...</ul>
+    </div>
+
+    <!-- [화면 2] 상단 고정 바 및 HTML 뷰어 -->
+    <div id="viewer-view" class="hidden">
+        <div id="viewer-header">
+            <button id="back-btn" onclick="closeViewer()">← 목록으로 돌아가기</button>
+            <span id="current-title"></span>
+        </div>
+        <iframe id="content-frame" src=""></iframe>
+    </div>
 
     <script>
-        // GitHub 사용자명과 레포지터리 이름 설정
         const USERNAME = 'Basel1ne';
         const REPO = 'Basel1ne.github.io';
-        
-        // GitHub API 엔드포인트
         const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
 
+        // 1. 레포지터리 파일 목록 가져오기
         fetch(apiUrl)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
                 const listElement = document.getElementById('file-list');
-                listElement.innerHTML = ''; // 로딩 메시지 제거
-                listElement.classList.remove('loading');
+                listElement.innerHTML = '';
 
-                // 1. '.html'로 끝나고 'index.html'이 아닌 파일만 필터링
                 const htmlFiles = data.filter(file => 
                     file.type === 'file' && 
                     file.name.endsWith('.html') && 
@@ -42,26 +72,54 @@
                 );
 
                 if (htmlFiles.length === 0) {
-                    listElement.innerHTML = '<li>현재 업로드된 다른 HTML 파일이 없습니다.</li>';
+                    listElement.innerHTML = '<li>업로드된 다른 HTML 파일이 없습니다.</li>';
                     return;
                 }
 
-                // 2. 검색된 파일들을 <li> 태그와 <a> 링크로 생성하여 추가
                 htmlFiles.forEach(file => {
                     const li = document.createElement('li');
                     const a = document.createElement('a');
-                    
-                    a.href = file.name;            // 파일 경로 연결
-                    a.textContent = file.name;     // 화면에 표시될 파일명
+                    a.className = 'file-link';
+                    a.textContent = file.name;
+                    a.onclick = () => openViewer(file.name);
                     
                     li.appendChild(a);
                     listElement.appendChild(li);
                 });
+
+                // URL 주소에 #파일명 이 남아있다면 바로 해당 파일 열기
+                if (window.location.hash) {
+                    const fileName = decodeURIComponent(window.location.hash.substring(1));
+                    openViewer(fileName);
+                }
             })
-            .catch(error => {
-                console.error('파일 목록 조회 실패:', error);
-                document.getElementById('file-list').textContent = '파일 목록을 불러오지 못했습니다.';
+            .catch(err => {
+                document.getElementById('file-list').textContent = '목록을 불러오지 못했습니다.';
             });
+
+        // 2. 뷰어 열기 (선택한 HTML 파일을 상단 바와 함께 출력)
+        function openViewer(fileName) {
+            document.getElementById('list-view').classList.add('hidden');
+            document.getElementById('viewer-view').classList.remove('hidden');
+            document.getElementById('content-frame').src = fileName;
+            document.getElementById('current-title').textContent = '현재 보기: ' + fileName;
+            window.location.hash = encodeURIComponent(fileName);
+        }
+
+        // 3. 목록으로 돌아가기
+        function closeViewer() {
+            document.getElementById('viewer-view').classList.add('hidden');
+            document.getElementById('list-view').classList.remove('hidden');
+            document.getElementById('content-frame').src = '';
+            window.location.hash = '';
+        }
+
+        // 브라우저 뒤로가기 버튼 대응
+        window.onhashchange = function() {
+            if (!window.location.hash) {
+                closeViewer();
+            }
+        };
     </script>
 
 </body>
