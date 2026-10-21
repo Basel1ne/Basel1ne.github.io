@@ -29,11 +29,17 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       padding: 20px;
     }
-    h1 {
-      font-size: 1.5rem;
-      margin-top: 0;
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       border-bottom: 2px solid var(--border-color);
       padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0;
     }
     .breadcrumbs {
       font-size: 0.95rem;
@@ -49,6 +55,21 @@
     }
     .breadcrumbs a:hover { text-decoration: underline; }
     
+    /* 웹 업로드 바 */
+    .upload-section {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: #f1f5f9;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    .upload-section input[type="file"] {
+      font-size: 0.85rem;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -65,9 +86,9 @@
     }
     tr:hover { background-color: var(--hover-bg); }
     .icon { margin-right: 8px; font-style: normal; }
-    .name-col { width: 50%; }
+    .name-col { width: 60%; }
     .size-col { width: 20%; }
-    .action-col { width: 30%; text-align: right; white-space: nowrap; }
+    .action-col { width: 20%; text-align: right; white-space: nowrap; }
     
     a.file-link {
       color: var(--link-color);
@@ -78,33 +99,51 @@
     
     .btn {
       display: inline-block;
-      padding: 4px 8px;
+      padding: 5px 10px;
       text-decoration: none;
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: bold;
-      margin-left: 4px;
+      border: none;
+      cursor: pointer;
     }
-    .btn-view {
-      background: #0969da;
-      color: white !important;
-    }
-    .btn-view:hover { background: #0451a5; }
-    
     .btn-download {
       background: #2ea44f;
       color: white !important;
     }
     .btn-download:hover { background: #2c974b; }
+
+    .btn-upload {
+      background: #0969da;
+      color: white;
+    }
+    .btn-upload:hover { background: #0451a5; }
+
+    .btn-token {
+      background: #6e7681;
+      color: white;
+    }
+    .btn-token:hover { background: #57606a; }
   </style>
 </head>
 <body>
 
 <div class="server-container">
-  <h1>📁 Basel1ne HTTP File Server</h1>
+  <div class="header-bar">
+    <h1>📁 Basel1ne HTTP File Server</h1>
+    <button onclick="configureToken()" class="btn btn-token">🔑 토큰 설정</button>
+  </div>
   
   <div class="breadcrumbs" id="breadcrumbs">
     경로: <a href="javascript:void(0)" onclick="loadDirectory('')">Root</a>
+  </div>
+
+  <!-- 파일 업로드 영역 -->
+  <div class="upload-section">
+    <strong>📤 파일 업로드:</strong>
+    <input type="file" id="file-input">
+    <button onclick="uploadFile()" class="btn btn-upload" id="upload-btn">업로드 시작</button>
+    <span id="upload-status" style="font-size: 0.85rem; font-weight: bold;"></span>
   </div>
 
   <table>
@@ -124,8 +163,21 @@
 <script>
   const REPO = 'Basel1ne/Basel1ne.github.io';
   const BASE_FOLDER = 'files';
+  let currentPath = '';
 
+  // 1. 토큰 설정 함수
+  function configureToken() {
+    const currentToken = localStorage.getItem('gh_token') || '';
+    const token = prompt('GitHub Personal Access Token (PAT)을 입력하세요:\n(입력된 토큰은 내 브라우저에만 저장됩니다)', currentToken);
+    if (token !== null) {
+      localStorage.setItem('gh_token', token.trim());
+      alert('토큰이 저장되었습니다.');
+    }
+  }
+
+  // 2. 디렉토리 로드 함수
   function loadDirectory(path) {
+    currentPath = path;
     const listTable = document.getElementById('file-list');
     const breadcrumbs = document.getElementById('breadcrumbs');
     
@@ -186,7 +238,6 @@
             const sizeMB = (item.size / (1024 * 1024)).toFixed(2);
             const displaySize = item.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
 
-            // raw.githubusercontent 대신 GitHub Pages 내부 상대 경로(item.path)로 주소 연결
             const fileUrl = encodeURI(item.path);
 
             html += `
@@ -197,7 +248,6 @@
                 </td>
                 <td class="size-col">${displaySize}</td>
                 <td class="action-col">
-                  <a href="${fileUrl}" target="_blank" class="btn btn-view" title="새 탭에서 바로보기">👁️ 보기</a>
                   <a href="${fileUrl}" download="${item.name}" class="btn btn-download" title="다운로드">📥 저장</a>
                 </td>
               </tr>
@@ -210,6 +260,83 @@
       .catch(err => {
         listTable.innerHTML = `<tr><td colspan="3" style="color:red;">⚠️ 오류: ${err.message} ('files' 폴더가 있는지 확인해주세요)</td></tr>`;
       });
+  }
+
+  // 3. 파일 업로드 함수
+  function uploadFile() {
+    const token = localStorage.getItem('gh_token');
+    if (!token) {
+      alert('파일을 업로드하려면 상단의 [🔑 토큰 설정]에서 GitHub Personal Access Token을 먼저 등록해야 합니다.');
+      configureToken();
+      return;
+    }
+
+    const fileInput = document.getElementById('file-input');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert('업로드할 파일을 선택하세요.');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const statusEl = document.getElementById('upload-status');
+    const uploadBtn = document.getElementById('upload-btn');
+
+    statusEl.style.color = '#0969da';
+    statusEl.innerText = '⏳ 업로드 중...';
+    uploadBtn.disabled = true;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const contentBase64 = e.target.result.split(',')[1];
+      const targetFolderPath = currentPath ? `${BASE_FOLDER}/${currentPath}` : BASE_FOLDER;
+      const targetFilePath = `${targetFolderPath}/${file.name}`;
+
+      // 기존 파일 존재 여부 확인 (SHA 확인용)
+      fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.ok ? res.json() : null)
+      .then(existingFile => {
+        const bodyData = {
+          message: `Upload ${file.name} via Web UI`,
+          content: contentBase64
+        };
+        if (existingFile && existingFile.sha) {
+          bodyData.sha = existingFile.sha; // 덮어쓰기 지원
+        }
+
+        return fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(bodyData)
+        });
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('업로드 실패 (토큰 권한 부족 또는 파일 용량 제한)');
+        return res.json();
+      })
+      .then(() => {
+        statusEl.style.color = '#2ea44f';
+        statusEl.innerText = '✅ 업로드 완료!';
+        fileInput.value = '';
+        setTimeout(() => {
+          statusEl.innerText = '';
+          loadDirectory(currentPath); // 목록 자동 새로고침
+        }, 1200);
+      })
+      .catch(err => {
+        statusEl.style.color = 'red';
+        statusEl.innerText = `❌ ${err.message}`;
+      })
+      .finally(() => {
+        uploadBtn.disabled = false;
+      });
+    };
+
+    reader.readAsDataURL(file);
   }
 
   loadDirectory('');
