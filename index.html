@@ -52,7 +52,6 @@
     }
     .breadcrumbs a:hover { text-decoration: underline; }
     
-    /* 웹 업로드 영역 */
     .upload-section {
       display: flex;
       gap: 10px;
@@ -157,17 +156,17 @@
   const REPO = 'Basel1ne/Basel1ne.github.io';
   const BASE_FOLDER = 'files';
   
-  // 🔑 1. 업로드 시 사용할 비밀번호 입력 (예: '1234')
-  const ADMIN_PASSWORD = '1211'; 
+  // 🔑 1. 웹 업로드 시 사용할 비밀번호 (자유롭게 설정)
+  const ADMIN_PASSWORD = '1234'; 
   
-  // 🔑 2. Base64로 변환된 토큰 적용
-  const B64_TOKEN = 'Z2hwX3BFOTVhNEJLRXB1S1Q3V2FDZUhyZ1ZiTW1HRk40czA2bXhaVQ=='; 
-  const EMBEDDED_TOKEN = atob(B64_TOKEN);
+  // 🔑 2. GitHub Personal Access Token (Base64 인코딩 값)
+  // ⚠️ 기존 토큰이 파기되었으므로 새로 발급받은 토큰의 Base64 값으로 넣으셔야 업로드가 가능합니다.
+  const B64_TOKEN = '여기에_새로_발급받은_Base64_토큰_입력'; 
   // =========================================================
 
   let currentPath = '';
 
-  // 1. 디렉토리 로드 함수
+  // 1. 디렉토리 로드 함수 (토큰 없이 순수 공개 요청으로 조회)
   function loadDirectory(path) {
     currentPath = path;
     const listTable = document.getElementById('file-list');
@@ -187,14 +186,10 @@
 
     const apiPath = path ? `${BASE_FOLDER}/${path}` : BASE_FOLDER;
 
-    const headers = {};
-    if (EMBEDDED_TOKEN && !EMBEDDED_TOKEN.includes('여기에')) {
-      headers['Authorization'] = `Bearer ${EMBEDDED_TOKEN}`;
-    }
-
-    fetch(`https://api.github.com/repos/${REPO}/contents/${apiPath}`, { headers })
+    // 인증 헤더 없이 직접 조회 (401 에러 원천 방지)
+    fetch(`https://api.github.com/repos/${REPO}/contents/${apiPath}`)
       .then(res => {
-        if (!res.ok) throw new Error('폴더를 열 수 없습니다. (경로가 올바른지 확인해 주세요)');
+        if (!res.ok) throw new Error(`폴더를 열 수 없습니다. (상태 코드: ${res.status})`);
         return res.json();
       })
       .then(items => {
@@ -259,7 +254,7 @@
       });
   }
 
-  // 2. 비밀번호 인증 및 용량 체크 후 파일 업로드 함수
+  // 2. 파일 업로드 함수 (비밀번호 인증 후 토큰 사용)
   function uploadFile() {
     const fileInput = document.getElementById('file-input');
     if (!fileInput.files || fileInput.files.length === 0) {
@@ -270,19 +265,25 @@
     const file = fileInput.files[0];
     const MAX_SIZE_MB = 20;
 
-    // 💡 20MB 용량 미리 확인 및 안내
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
       alert(`⚠️ 파일 용량이 너무 큽니다 (${fileSizeMB}MB).\n\n웹 UI에서는 20MB 이하 파일만 업로드할 수 있습니다.\n20MB 초과 파일은 GitHub 웹사이트에서 직접 올려주세요.`);
       return;
     }
 
-    // 비밀번호 확인 팝업창
     const inputPassword = prompt('🔒 파일 업로드 권한이 필요합니다.\n비밀번호를 입력해 주세요:');
     if (inputPassword === null) return;
 
     if (inputPassword !== ADMIN_PASSWORD) {
       alert('❌ 비밀번호가 올바르지 않습니다.');
+      return;
+    }
+
+    let token = '';
+    try {
+      token = atob(B64_TOKEN);
+    } catch(e) {
+      alert('❌ B64_TOKEN 설정이 올바르지 않거나 입력되지 않았습니다.');
       return;
     }
 
@@ -300,7 +301,7 @@
       const targetFilePath = `${targetFolderPath}/${file.name}`;
 
       fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
-        headers: { 'Authorization': `Bearer ${EMBEDDED_TOKEN}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.ok ? res.json() : null)
       .then(existingFile => {
@@ -315,14 +316,14 @@
         return fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${EMBEDDED_TOKEN}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(bodyData)
         });
       })
       .then(res => {
-        if (!res.ok) throw new Error('업로드 실패 (토큰 권한 오류)');
+        if (!res.ok) throw new Error(`업로드 실패 (토큰 권한 오류 또는 HTTP ${res.status})`);
         return res.json();
       })
       .then(() => {
