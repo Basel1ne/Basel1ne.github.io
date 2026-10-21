@@ -29,14 +29,11 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       padding: 20px;
     }
-    .header-bar {
-      border-bottom: 2px solid var(--border-color);
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
     h1 {
       font-size: 1.5rem;
-      margin: 0;
+      margin-top: 0;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
     }
     .breadcrumbs {
       font-size: 0.95rem;
@@ -52,20 +49,6 @@
     }
     .breadcrumbs a:hover { text-decoration: underline; }
     
-    .upload-section {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      background: #f1f5f9;
-      padding: 10px 12px;
-      border-radius: 6px;
-      margin-bottom: 15px;
-      flex-wrap: wrap;
-    }
-    .upload-section input[type="file"] {
-      font-size: 0.85rem;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
@@ -82,9 +65,9 @@
     }
     tr:hover { background-color: var(--hover-bg); }
     .icon { margin-right: 8px; font-style: normal; }
-    .name-col { width: 60%; }
+    .name-col { width: 50%; }
     .size-col { width: 20%; }
-    .action-col { width: 20%; text-align: right; white-space: nowrap; }
+    .action-col { width: 30%; text-align: right; white-space: nowrap; }
     
     a.file-link {
       color: var(--link-color);
@@ -95,44 +78,33 @@
     
     .btn {
       display: inline-block;
-      padding: 5px 10px;
+      padding: 4px 8px;
       text-decoration: none;
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: bold;
-      border: none;
-      cursor: pointer;
+      margin-left: 4px;
     }
+    .btn-view {
+      background: #0969da;
+      color: white !important;
+    }
+    .btn-view:hover { background: #0451a5; }
+    
     .btn-download {
       background: #2ea44f;
       color: white !important;
     }
     .btn-download:hover { background: #2c974b; }
-
-    .btn-upload {
-      background: #0969da;
-      color: white;
-    }
-    .btn-upload:hover { background: #0451a5; }
   </style>
 </head>
 <body>
 
 <div class="server-container">
-  <div class="header-bar">
-    <h1>📁 Basel1ne HTTP File Server</h1>
-  </div>
+  <h1>📁 Basel1ne HTTP File Server</h1>
   
   <div class="breadcrumbs" id="breadcrumbs">
     경로: <a href="javascript:void(0)" onclick="loadDirectory('')">Root</a>
-  </div>
-
-  <!-- 파일 업로드 영역 -->
-  <div class="upload-section">
-    <strong>📤 파일 업로드:</strong>
-    <input type="file" id="file-input">
-    <button onclick="uploadFile()" class="btn btn-upload" id="upload-btn">업로드 시작</button>
-    <span id="upload-status" style="font-size: 0.85rem; font-weight: bold;"></span>
   </div>
 
   <table>
@@ -150,25 +122,10 @@
 </div>
 
 <script>
-  // =========================================================
-  // ⚙️ [설정] 본인의 정보로 변경해 주세요
-  // =========================================================
   const REPO = 'Basel1ne/Basel1ne.github.io';
   const BASE_FOLDER = 'files';
-  
-  // 🔑 1. 웹 업로드 시 사용할 비밀번호 (자유롭게 설정)
-  const ADMIN_PASSWORD = '1234'; 
-  
-  // 🔑 2. GitHub Personal Access Token (Base64 인코딩 값)
-  // ⚠️ 기존 토큰이 파기되었으므로 새로 발급받은 토큰의 Base64 값으로 넣으셔야 업로드가 가능합니다.
-  const B64_TOKEN = '여기에_새로_발급받은_Base64_토큰_입력'; 
-  // =========================================================
 
-  let currentPath = '';
-
-  // 1. 디렉토리 로드 함수 (토큰 없이 순수 공개 요청으로 조회)
   function loadDirectory(path) {
-    currentPath = path;
     const listTable = document.getElementById('file-list');
     const breadcrumbs = document.getElementById('breadcrumbs');
     
@@ -186,10 +143,9 @@
 
     const apiPath = path ? `${BASE_FOLDER}/${path}` : BASE_FOLDER;
 
-    // 인증 헤더 없이 직접 조회 (401 에러 원천 방지)
     fetch(`https://api.github.com/repos/${REPO}/contents/${apiPath}`)
       .then(res => {
-        if (!res.ok) throw new Error(`폴더를 열 수 없습니다. (상태 코드: ${res.status})`);
+        if (!res.ok) throw new Error('폴더를 열 수 없습니다.');
         return res.json();
       })
       .then(items => {
@@ -230,6 +186,7 @@
             const sizeMB = (item.size / (1024 * 1024)).toFixed(2);
             const displaySize = item.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
 
+            // raw.githubusercontent 대신 GitHub Pages 내부 상대 경로(item.path)로 주소 연결
             const fileUrl = encodeURI(item.path);
 
             html += `
@@ -240,6 +197,7 @@
                 </td>
                 <td class="size-col">${displaySize}</td>
                 <td class="action-col">
+                  <a href="${fileUrl}" target="_blank" class="btn btn-view" title="새 탭에서 바로보기">👁️ 보기</a>
                   <a href="${fileUrl}" download="${item.name}" class="btn btn-download" title="다운로드">📥 저장</a>
                 </td>
               </tr>
@@ -250,101 +208,8 @@
         listTable.innerHTML = html;
       })
       .catch(err => {
-        listTable.innerHTML = `<tr><td colspan="3" style="color:red;">⚠️ 오류: ${err.message}</td></tr>`;
+        listTable.innerHTML = `<tr><td colspan="3" style="color:red;">⚠️ 오류: ${err.message} ('files' 폴더가 있는지 확인해주세요)</td></tr>`;
       });
-  }
-
-  // 2. 파일 업로드 함수 (비밀번호 인증 후 토큰 사용)
-  function uploadFile() {
-    const fileInput = document.getElementById('file-input');
-    if (!fileInput.files || fileInput.files.length === 0) {
-      alert('업로드할 파일을 선택하세요.');
-      return;
-    }
-
-    const file = fileInput.files[0];
-    const MAX_SIZE_MB = 20;
-
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      alert(`⚠️ 파일 용량이 너무 큽니다 (${fileSizeMB}MB).\n\n웹 UI에서는 20MB 이하 파일만 업로드할 수 있습니다.\n20MB 초과 파일은 GitHub 웹사이트에서 직접 올려주세요.`);
-      return;
-    }
-
-    const inputPassword = prompt('🔒 파일 업로드 권한이 필요합니다.\n비밀번호를 입력해 주세요:');
-    if (inputPassword === null) return;
-
-    if (inputPassword !== ADMIN_PASSWORD) {
-      alert('❌ 비밀번호가 올바르지 않습니다.');
-      return;
-    }
-
-    let token = '';
-    try {
-      token = atob(B64_TOKEN);
-    } catch(e) {
-      alert('❌ B64_TOKEN 설정이 올바르지 않거나 입력되지 않았습니다.');
-      return;
-    }
-
-    const statusEl = document.getElementById('upload-status');
-    const uploadBtn = document.getElementById('upload-btn');
-
-    statusEl.style.color = '#0969da';
-    statusEl.innerText = '⏳ 업로드 중...';
-    uploadBtn.disabled = true;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const contentBase64 = e.target.result.split(',')[1];
-      const targetFolderPath = currentPath ? `${BASE_FOLDER}/${currentPath}` : BASE_FOLDER;
-      const targetFilePath = `${targetFolderPath}/${file.name}`;
-
-      fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => res.ok ? res.json() : null)
-      .then(existingFile => {
-        const bodyData = {
-          message: `Upload ${file.name} via Web UI`,
-          content: contentBase64
-        };
-        if (existingFile && existingFile.sha) {
-          bodyData.sha = existingFile.sha;
-        }
-
-        return fetch(`https://api.github.com/repos/${REPO}/contents/${targetFilePath}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(bodyData)
-        });
-      })
-      .then(res => {
-        if (!res.ok) throw new Error(`업로드 실패 (토큰 권한 오류 또는 HTTP ${res.status})`);
-        return res.json();
-      })
-      .then(() => {
-        statusEl.style.color = '#2ea44f';
-        statusEl.innerText = '✅ 업로드 완료!';
-        fileInput.value = '';
-        setTimeout(() => {
-          statusEl.innerText = '';
-          loadDirectory(currentPath);
-        }, 1200);
-      })
-      .catch(err => {
-        statusEl.style.color = 'red';
-        statusEl.innerText = `❌ ${err.message}`;
-      })
-      .finally(() => {
-        uploadBtn.disabled = false;
-      });
-    };
-
-    reader.readAsDataURL(file);
   }
 
   loadDirectory('');
